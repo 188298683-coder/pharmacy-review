@@ -4,7 +4,7 @@
  *  - 静态资源（图标/manifest）：stale-while-revalidate —— 先用缓存秒开，后台静默更新
  * 升版本号会触发旧缓存清理，改动图标/页面后记得 +1。
  */
-const CACHE = 'pharmacy-pwa-v2';
+const CACHE = 'pharmacy-pwa-v3';
 const PRECACHE = ['./', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
