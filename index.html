@@ -591,6 +591,7 @@
           <div class="exam-form">
             <select id="exSub"></select>
             <input type="date" id="exDate">
+            <input type="time" id="exTime" title="考试时间（可留空）">
             <button class="btn sm" id="exSave">加考试</button>
           </div>
         </div>
@@ -782,12 +783,16 @@ const DEFAULT_SUBJECTS = [
     note:'范围已锁定为上述 8 模块，题型与分值已锁定。' },
   { id:'tox', name:'药物毒理学', reserved:true, scope:[], exam:'题型待补充', types:[], note:'预留科目档案，待你发 PPT 时同步补充题型。' },
   { id:'clin_pharm', name:'临床药理学', reserved:true, scope:[], exam:'题型待补充', types:[], note:'预留科目档案，待你发 PPT 时同步补充题型。' },
-  { id:'neuro', name:'神经病学', reserved:true, scope:[], exam:'题型待补充', types:[], note:'预留科目档案，待你发 PPT 时同步补充题型。' }
+  { id:'neuro', name:'神经病学', reserved:true, scope:[], exam:'题型待补充', types:[], note:'预留科目档案，待你发 PPT 时同步补充题型。' },
+  { id:'hosp_pharm', name:'医院药学', reserved:true, scope:[], exam:'题型待补充', types:[], note:'预留科目档案，待你发 PPT 时同步补充题型。' }
 ];
 
 const DEFAULT_EXAMS = [
-  { id:'ex_clin_front', subject:'clin_front', name:'临床药学前沿与进展', date:'2026-12-03' },
-  { id:'ex_tox',        subject:'tox',        name:'药物毒理学',        date:'2026-12-04' }
+  { id:'ex_clin_front',  subject:'clin_front',  name:'临床药学前沿与进展', date:'2026-12-03', time:'19:30' },
+  { id:'ex_tox',         subject:'tox',         name:'药物毒理学',        date:'2026-12-04', time:'19:30' },
+  { id:'ex_hosppharm',   subject:'hosp_pharm',  name:'医院药学',          date:'2026-12-25', time:'19:30' },
+  { id:'ex_clin_pharm',  subject:'clin_pharm',  name:'临床药理学',        date:'2027-01-08', time:'15:00' },
+  { id:'ex_neuro',       subject:'neuro',       name:'神经病学',          date:'2027-01-10', time:'10:30' }
 ];
 
 const COMMANDS = [
@@ -905,6 +910,25 @@ let chapters = loadJSON(KEY_CHAP, []);
 let exams    = loadJSON(KEY_EXAM, null) || JSON.parse(JSON.stringify(DEFAULT_EXAMS));
 if(!localStorage.getItem(KEY_SUB))  saveJSON(KEY_SUB, subjects);
 if(!localStorage.getItem(KEY_EXAM)) saveJSON(KEY_EXAM, exams);
+/* 考试数据版本戳：内置考试（含时刻/新增科目）变更时强制覆盖同 id 项，保留用户自建考试与自定义科目。
+   同步科目里内置新增的科目（如医院药学），不删除用户自建科目。 */
+const EXAM_VER_KEY='wb_pharmacy_review_exam_ver';
+const EXAM_VERSION='20261116a';
+function syncExams(){
+  /* 科目：只补入缺失的内置科目（如医院药学），完全不改动已有科目档案 */
+  DEFAULT_SUBJECTS.forEach(d=>{
+    if(!subjects.some(s=>s.id===d.id)) subjects.push(JSON.parse(JSON.stringify(d)));
+  });
+  /* 考试：按 id 覆盖同 id 内置考试（写入最新时刻），保留用户自建考试 */
+  DEFAULT_EXAMS.forEach(d=>{
+    const i=exams.findIndex(e=>e.id===d.id);
+    if(i<0) exams.push(JSON.parse(JSON.stringify(d)));
+    else exams[i]=Object.assign({},exams[i],d);
+  });
+  saveJSON(KEY_SUB,subjects); saveJSON(KEY_EXAM,exams);
+  localStorage.setItem(EXAM_VER_KEY,EXAM_VERSION);
+}
+if(localStorage.getItem(EXAM_VER_KEY)!==EXAM_VERSION) syncExams();
 
 let state = { filter:'all', expanded:null, nav:'sec-plan', calY:0, calM:0,
               fileSub:null, fileCat:'ppt', seeAll:false };
@@ -977,7 +1001,7 @@ function renderExams(){
       const row=document.createElement('div'); row.className='exam sm';
       row.innerHTML =
         '<div class="ex-d"><b>'+p[2]+'</b><span>'+(+p[1])+'月</span></div>'+
-        '<div class="ex-b"><div class="ex-n">'+esc(e.name)+'</div><div class="ex-t">周'+['日','一','二','三','四','五','六'][new Date(e.date+'T00:00:00').getDay()]+' · 考试</div></div>'+
+        '<div class="ex-b"><div class="ex-n">'+esc(e.name)+'</div><div class="ex-t">周'+['日','一','二','三','四','五','六'][new Date(e.date+'T00:00:00').getDay()]+(e.time?' '+esc(e.time):'')+' · 考试</div></div>'+
         '<div class="ex-left'+(urgent?' urgent':'')+'">'+left+'</div>'+
         '<button class="ex-x" title="删除">×</button>';
       row.querySelector('.ex-x').onclick=()=>{
@@ -1008,7 +1032,7 @@ function ovMeta(s,cnt){
   let h='<span>考核 <b>'+esc(s.exam||'待补充')+'</b></span>';
   if(ex.length){
     const d=ovDays(ex[0].date);
-    h+='<span>📅 <b>'+esc(ex[0].date.slice(5).replace('-','.'))+'</b></span>';
+    h+='<span>📅 <b>'+esc(ex[0].date.slice(5).replace('-','.'))+(ex[0].time?' '+esc(ex[0].time):'')+'</b></span>';
     h+='<span class="ov-cd'+(d>=0&&d<=14?' urgent':'')+'">'+daysLeft(ex[0].date)+'</span>';
   }else h+='<span>📅 考试待定</span>';
   h+='<span>已收 <b>'+cnt+'</b> 章</span>';
@@ -1792,7 +1816,7 @@ function renderCheck(){
       setPane('day'); renderFocus(); renderCheck();
       const tip=$('calTip');
       if(tip) tip.innerHTML = ex.length
-        ? '📌 <b>'+ex.map(e=>esc(e.name)+'（'+esc(daysLeft(e.date))+'）').join('；')+'</b> · 考试日'
+        ? '📌 <b>'+ex.map(e=>esc(e.name)+(e.time?' '+esc(e.time):'')+'（'+esc(daysLeft(e.date))+'）').join('；')+'</b> · 考试日'
         : '📊 <b>'+(+key.slice(5,7))+' 月 '+(+key.slice(8,10))+' 日</b>　'+
           (mins>0?(mins/60).toFixed(1)+' 小时':'暂无学习时长')+' · 右侧已切到当日';
     };
@@ -2102,15 +2126,15 @@ $('fileSeeAll').onclick=()=>{ state.seeAll=!state.seeAll; renderFiles(); };
 
 /* 添加考试 */
 $('exSave').onclick=()=>{
-  const sid=$('exSub').value, dt=$('exDate').value;
+  const sid=$('exSub').value, dt=$('exDate').value, tm=$('exTime').value;
   if(!dt){ toast('请选择考试日期'); return; }
   const sub=subjects.find(s=>s.id===sid);
   if(exams.some(e=>e.subject===sid && e.date===dt)){ toast('该科目此日期已存在'); return; }
-  exams.push({ id:'ex_'+Date.now(), subject:sid, name:sub?sub.name:sid, date:dt });
+  exams.push({ id:'ex_'+Date.now(), subject:sid, name:sub?sub.name:sid, date:dt, time:tm });
   saveJSON(KEY_EXAM,exams);
   const p=dt.split('-'); ckY=+p[0]; ckM=(+p[1])-1; ckSel=dt;
-  renderCheck(); renderExams(); renderOverview(); $('exDate').value='';
-  toast('已添加：'+(sub?sub.name:sid)+' '+dt);
+  renderCheck(); renderExams(); renderOverview(); $('exDate').value=''; $('exTime').value='';
+  toast('已添加：'+(sub?sub.name:sid)+' '+dt+(tm?' '+tm:''));
 };
 
 /* 时钟 */
