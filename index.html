@@ -1398,11 +1398,27 @@ function block(title, content){
   return '<div class="blk"><h4>'+esc(title)+'</h4><div class="bod">'+bod+'</div></div>';
 }
 
+/* 内置章节展示顺序：临床药学按 8 模块顺序、药物毒理学按教材编排；自建章节排在后面 */
+const CHAPTER_ORDER = [
+  'c_clin_front_zonglun',
+  'c_clin_front_xinli','c_clin_front_cerebro',
+  'c_clin_front_onco','c_clin_front_immunoonco','c_clin_front_immunoonco2',
+  'c_clin_front_antiinfl_intro','c_clin_front_antiinfl_clin','c_clin_front_immunomod','c_clin_front_nsaid','c_clin_front_glucocorticoid',
+  'c_clin_front_obesity','c_clin_front_nafld',
+  'c_clin_front_depression','c_clin_front_ad',
+  'c_clin_front_microbe',
+  'c_clin_front_pharmacogenomics',
+  'c_tox_intro','c_tox_neuro','c_tox_immune','c_tox_blood','c_tox_cardio','c_tox_resp','c_tox_liverkidney','c_tox_endo','c_tox_repro','c_tox_genetox'
+];
 function renderChapters(){
   const list=$('chapterList'); list.innerHTML='';
   let data = chapters.slice();
   if(state.filter!=='all') data=data.filter(c=>c.subject===state.filter);
-  data.sort((a,b)=> (b.star-a.star) || String(a.subject).localeCompare(String(b.subject)) || (a.createdAt-b.createdAt));
+  data.sort((a,b)=>{
+    const ia=CHAPTER_ORDER.indexOf(a.id), ib=CHAPTER_ORDER.indexOf(b.id);
+    if(ia>=0||ib>=0){ if(ia<0) return 1; if(ib<0) return -1; return ia-ib; }
+    return (b.star-a.star) || String(a.subject).localeCompare(String(b.subject)) || (a.createdAt-b.createdAt);
+  });
   if(!data.length){
     list.innerHTML='<div class="empty-hint">暂无章节。直接发 PPT 文字 / 截图转写给我即可，<b>无需标注科目和章节</b>；我会对照「课程资料」自动归入对应科目并标模块、星级，生成四段式后你粘贴到下方保存。</div>';
     return;
