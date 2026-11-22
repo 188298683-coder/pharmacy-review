@@ -781,7 +781,10 @@ const DEFAULT_SUBJECTS = [
     exam:'卷面70% / 平时30%',
     types:['A型选择 20×1','B型选择 20×1','判断 20×1','简答 5×2','论述 2×15'],
     note:'范围已锁定为上述 8 模块，题型与分值已锁定。' },
-  { id:'tox', name:'药物毒理学', reserved:true, scope:[], exam:'题型待补充', types:[], note:'预留科目档案，待你发 PPT 时同步补充题型。' },
+  { id:'tox', name:'药物毒理学', reserved:true,
+    scope:['总论（4学时）','药物对肝脏的毒性作用（2学时）','药物对肾脏的毒性作用（2学时）','药物对心血管系统的毒性作用（2学时）','药物对呼吸系统的毒性作用（2学时）','药物对神经系统的毒性作用（2学时）','药物对内分泌系统的毒性作用（2学时）','药物对免疫系统的毒性作用（2学时）','药物对血液系统的毒性作用、致癌作用（2学时）','药物的生殖和发育毒性、药物遗传毒性（2学时）','药物临床应用的毒性问题（2学时）','新药评价概述（2学时）','新药药学评价（2学时）','新药临床前药理学评价（2学时）','新药临床前毒理学评价（2学时）','新药临床研究（2学时）'],
+    exam:'题型待补充', types:[],
+    note:'授课范围按教学大纲 16 讲录入（总论 4 学时，其余各 2 学时，共 34 学时）。彩色标签 = 大纲讲次，深色 = 已收章节。题型待补充。' },
   { id:'clin_pharm', name:'临床药理学', reserved:true, scope:[], exam:'题型待补充', types:[], note:'预留科目档案，待你发 PPT 时同步补充题型。' },
   { id:'neuro', name:'神经病学', reserved:true, scope:[], exam:'题型待补充', types:[], note:'预留科目档案，待你发 PPT 时同步补充题型。' },
   { id:'hosp_pharm', name:'医院药学', reserved:true, scope:[], exam:'题型待补充', types:[], note:'预留科目档案，待你发 PPT 时同步补充题型。' }
@@ -913,11 +916,16 @@ if(!localStorage.getItem(KEY_EXAM)) saveJSON(KEY_EXAM, exams);
 /* 考试数据版本戳：内置考试（含时刻/新增科目）变更时强制覆盖同 id 项，保留用户自建考试与自定义科目。
    同步科目里内置新增的科目（如医院药学），不删除用户自建科目。 */
 const EXAM_VER_KEY='wb_pharmacy_review_exam_ver';
-const EXAM_VERSION='20261116a';
+const EXAM_VERSION='20261122a';
 function syncExams(){
-  /* 科目：只补入缺失的内置科目（如医院药学），完全不改动已有科目档案 */
+  /* 科目：补入缺失的内置科目；对内置毒理学科目，仅当其范围为空时补入大纲16讲（不覆盖用户自定义范围） */
   DEFAULT_SUBJECTS.forEach(d=>{
-    if(!subjects.some(s=>s.id===d.id)) subjects.push(JSON.parse(JSON.stringify(d)));
+    const i=subjects.findIndex(s=>s.id===d.id);
+    if(i<0){ subjects.push(JSON.parse(JSON.stringify(d))); return; }
+    if(d.id==='tox' && subjects[i] && (!subjects[i].scope||!subjects[i].scope.length) && d.scope&&d.scope.length){
+      subjects[i].scope=JSON.parse(JSON.stringify(d.scope));
+      subjects[i].note=d.note;
+    }
   });
   /* 考试：按 id 覆盖同 id 内置考试（写入最新时刻），保留用户自建考试 */
   DEFAULT_EXAMS.forEach(d=>{
@@ -1046,6 +1054,7 @@ function ovMain(s,cnt,color){
   const total=(s.scope&&s.scope.length)||0;
   const pct=total?Math.min(100,Math.round(cnt/total*100)):0;
   const doneSet={}; chapters.filter(c=>c.subject===s.id).forEach(c=>{ doneSet[c.chapter]=1; });
+  const scopeKey=m=>String(m).replace(/（\d+学时）$/,'');
   let h='<div class="ov-top"><span class="ov-dot"></span><span class="ov-name">'+esc(s.name)+'</span>'+ovTag(s)+'</div>';
   h+=ovMeta(s,cnt);
   if(total) h+='<div class="ov-prog"><span class="ov-track"><i style="width:'+pct+'%"></i></span>'+
@@ -1053,7 +1062,7 @@ function ovMain(s,cnt,color){
   if(s.types&&s.types.length) h+='<div><div class="ov-lb" style="margin-bottom:5px">卷面题型</div>'+
     '<div class="chips">'+s.types.map(t=>'<span class="chip">'+esc(t)+'</span>').join('')+'</div></div>';
   if(total) h+='<div><div class="ov-lb" style="margin-bottom:5px">授课范围（深色 = 已收章节）</div>'+
-    '<div class="ov-scope">'+s.scope.map(m=>'<span class="'+(doneSet[m]?'done':'')+'">'+esc(m)+'</span>').join('')+'</div></div>';
+    '<div class="ov-scope">'+s.scope.map(m=>'<span class="'+(doneSet[scopeKey(m)]?'done':'')+'">'+esc(m)+'</span>').join('')+'</div></div>';
   if(s.note) h+='<div class="ov-note">'+esc(s.note)+'</div>';
   const d=document.createElement('div');
   d.className='ov-card ov-main'; d.style.setProperty('--sc',color); d.innerHTML=h;
